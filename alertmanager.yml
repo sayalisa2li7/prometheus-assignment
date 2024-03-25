@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+data:
+  config.yml: |
+    route:
+      group_by: ['alertname']
+      group_interval: 5m
+      repeat_interval: 3h
+      receiver: 'email_notifications'
+
+    receivers:
+    - name: 'email_notifications'
+      email_configs:
+      - to: 'sayali09@somaiya.edu'
+        from: 'alertmanager@example.com'
+        smarthost: 'sigmoid-ThinkPad-T460:25'  # Replace with your SMTP server hostname and port
+        auth_username: 'username'
+        auth_password: 'password'
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      containers:
+      - name: alertmanager
+        image: prom/alertmanager:v0.23.0
+        args:
+        - "--config.file=alertmanager.yml"  # Corrected path
+        - "--storage.path=/data"
+        ports:
+        - containerPort: 9093
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/alertmanager  # Mount directory
+        - name: storage-volume
+          mountPath: /data
+      volumes:
+      - name: config-volume
+        configMap:
+          name: alertmanager-config
+      - name: storage-volume
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: monitoring
+spec:
+  selector:
+    app: alertmanager
+  ports:
+  - protocol: TCP
+    port: 9093
+    targetPort: 9093
+    nodePort: 31000  # Choose an available port for NodePort
+  type: NodePort  # Set the service type to NodePort
+
